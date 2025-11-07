@@ -7,12 +7,20 @@ from scipy.special import eval_genlaguerre
 # for interpolation
 from scipy import interpolate
 
-# for resampling technology
-#from lintsampler import LintSampler
-#import lintsampler
+# check if lintsampler is available
+try:
+    import lintsampler
+    HAS_LINTSAMPLER = True
+except ImportError:
+    HAS_LINTSAMPLER = False
 
-# if you leave LaguerreAmplitudes in a different file
-from FLEXbase import LaguerreAmplitudes
+# check if flex is available
+try:
+    import flex
+    HAS_FLEX = True
+except ImportError:
+    HAS_FLEX = False
+
 
 
 
@@ -205,6 +213,9 @@ class DiscGalaxy(object):
 
     def make_expansion(self,mmax,nmax,rscl,xmax=10000.,noisy=False):
 
+        if not HAS_FLEX:
+            raise ImportError("flex is not available. Please install flex to use this method.")
+
         try:
             snapshot = self.img
         except:
@@ -230,24 +241,29 @@ class DiscGalaxy(object):
         #phi[gvals]          = np.nan
         snapshotflat[gvals] = np.nan
 
-        laguerre = LaguerreAmplitudes(rscl,mmax,nmax,rval,phi,snapshotflat)
+        laguerre = flex.FLEX(rscl,mmax,nmax,rval,phi,mass=snapshotflat)
 
         return laguerre
 
     def make_particle_expansion(self,mmax,nmax,rscl,xmax=10000.,noisy=False):
 
-        # no guards here yet, please add one!
+        if not HAS_FLEX:
+            raise ImportError("flex is not available. Please install flex to use this method.")
 
         rval = np.sqrt(self.x**2+self.y**2)
         phi  = np.arctan2(self.y,self.x)
         mass = (self.M/self.N)*np.ones(rval.size)  # this assumes equal weights; the sqrt avoids double counting
 
         # this assumes equal weights
-        laguerre = LaguerreAmplitudes(rscl,mmax,nmax,rval,phi,mass=mass)
+        laguerre = flex.FLEX(rscl,mmax,nmax,rval,phi,mass=mass)
 
         return laguerre
 
     def resample_expansion(self,E):
+
+        if not HAS_LINTSAMPLER:
+            raise ImportError("lintsampler is not available. Please install lintsampler to use this method.")
+        
         def rndmpdf(X): return np.random.uniform()
         g = lintsampler.DensityGrid((self.x_centers,self.x_centers), rndmpdf)
 
@@ -256,7 +272,7 @@ class DiscGalaxy(object):
             
         g.masses = g._calculate_faverages() * g._calculate_volumes()
         g._total_mass = np.sum(g.masses)
-        pos = LintSampler(g).sample(self.N)
+        pos = lintsampler.LintSampler(g).sample(self.N)
         return pos
 
     def compute_a1(self,E):

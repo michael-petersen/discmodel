@@ -8,7 +8,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "flex"
+name = "discmodel"
 authors = [
   { name="Michael S. Petersen", email="michael.petersen@roe.ac.uk" },
 ]

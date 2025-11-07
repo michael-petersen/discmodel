@@ -1,6 +1,8 @@
 *__pycache__/
 *.DS_Store
 
+src/discmodel.egg*
+
 .coverage
 docs/build/
 dist/
