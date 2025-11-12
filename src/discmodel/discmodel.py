@@ -7,21 +7,16 @@ from scipy.special import eval_genlaguerre
 # for interpolation
 from scipy import interpolate
 
-# check if lintsampler is available
-try:
+# check if depedendencies are available
+from .optional_imports import check_lintsampler, check_flex
+HAS_LINTSAMPLER = check_lintsampler()
+HAS_FLEX = check_flex()
+
+if HAS_LINTSAMPLER:
     import lintsampler
-    HAS_LINTSAMPLER = True
-except ImportError:
-    HAS_LINTSAMPLER = False
 
-# check if flex is available
-try:
+if HAS_FLEX:
     import flex
-    HAS_FLEX = True
-except ImportError:
-    HAS_FLEX = False
-
-
 
 
 class DiscGalaxy(object):

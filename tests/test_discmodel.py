@@ -112,3 +112,22 @@ def test_discmodel_image():
     assert hasattr(disc,'p')
 
 
+def test_discmodel_expansion():
+    N = 1000
+    a = 3.0
+    M = 1.0
+    vcirc = 200.0
+    rmax = 30.0
+    noiselevel = -100.0
+    nbins = 50
+
+    disc = discmodel.DiscGalaxy(N=N, a=a, M=M, vcirc=vcirc, rmax=rmax)
+    disc.generate_image(rmax,nbins,noiselevel=noiselevel)
+
+    # add some noise
+    noiselevel = 0.1
+    disc.generate_image(rmax,nbins,noiselevel=noiselevel)
+
+
+    # compute the expansion
+    disc.make_expansion(mmax=4,nmax=4,rscl=1.0,xmax=rmax,noisy=False)
