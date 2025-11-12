@@ -7,21 +7,16 @@ from scipy.special import eval_genlaguerre
 # for interpolation
 from scipy import interpolate
 
-# check if lintsampler is available
-try:
+# check if depedendencies are available
+from .optional_imports import _check_lintsampler, _check_flex
+HAS_LINTSAMPLER = _check_lintsampler()
+HAS_FLEX = _check_flex()
+
+if HAS_LINTSAMPLER:
     import lintsampler
-    HAS_LINTSAMPLER = True
-except ImportError:
-    HAS_LINTSAMPLER = False
 
-# check if flex is available
-try:
+if HAS_FLEX:
     import flex
-    HAS_FLEX = True
-except ImportError:
-    HAS_FLEX = False
-
-
 
 
 class DiscGalaxy(object):
@@ -80,7 +75,7 @@ class DiscGalaxy(object):
         return x,y,z,u,v,w
 
     @staticmethod
-    def make_rotation_matrix(xrotation,yrotation,zrotation,euler):
+    def make_rotation_matrix(xrotation,yrotation,zrotation,euler=False):
         
         radfac = np.pi/180.
 
@@ -115,7 +110,7 @@ class DiscGalaxy(object):
 
     def rotate_disc(self,xrotation=0.,yrotation=0.,zrotation=0.,euler=False):
         '''
-        rotate_point_vector
+        rotate_disc
             take a collection of 3d points and return the positions rotated by a specified set of angles
 
         inputs
@@ -171,19 +166,6 @@ class DiscGalaxy(object):
         self.u = uout
         self.v = vout
         self.w = wout
-
-    @staticmethod
-    def _angle_from_faceon(xrotation,yrotation,zrotation):
-        """compute the total inclination, relative to face on.
-        
-        we're doing it this way because inclination is degenerate with the two dimensions into the page, 
-        so we just want a rough idea of how to correct.
-        """
-        x = np.array([0,0,1.0])
-        Rmatrix = make_rotation_matrix(xrotation,yrotation,zrotation)
-        y = rotate_point_vector([0,0,1],Rmatrix)
-        print('Angle from faceon: ',(180./np.pi)*np.arccos(np.dot(x,y)/(np.linalg.norm(x)*np.linalg.norm(y))))
-
 
     def generate_image(self,rmax,nbins,noiselevel=-1.0):
 
@@ -245,7 +227,7 @@ class DiscGalaxy(object):
 
         return laguerre
 
-    def make_particle_expansion(self,mmax,nmax,rscl,xmax=10000.,noisy=False):
+    def make_particle_expansion(self,mmax,nmax,rscl):
 
         if not HAS_FLEX:
             raise ImportError("flex is not available. Please install flex to use this method.")
