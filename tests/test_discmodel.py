@@ -101,6 +101,7 @@ def test_discmodel_image():
     vcirc = 200.0
     rmax = 30.0
     noiselevel = -100.0
+    nbins = 50
 
     disc = discmodel.DiscGalaxy(N=N, a=a, M=M, vcirc=vcirc, rmax=rmax)
     disc.generate_image(rmax,nbins,noiselevel=noiselevel)
