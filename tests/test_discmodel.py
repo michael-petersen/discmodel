@@ -135,7 +135,7 @@ def test_discmodel_expansion():
     # compute the expansion
     E1 = disc.make_expansion(mmax=4,nmax=4,rscl=1.0,xmax=rmax,noisy=False)
 
-    # compute a nosiy expansion
+    # compute a noisy expansion
     E2 = disc.make_expansion(mmax=4,nmax=4,rscl=1.0,xmax=rmax,noisy=True)
     assert E2 is not None
     # compute the expansion from the particles
