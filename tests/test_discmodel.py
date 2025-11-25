@@ -124,7 +124,6 @@ def test_discmodel_expansion():
     disc = discmodel.DiscGalaxy(N=N, a=a, M=M, vcirc=vcirc, rmax=rmax)
 
     # try to compute expansion before image - should raise error
-    E1 = disc.make_expansion(mmax=4,nmax=4,rscl=1.0,xmax=rmax,noisy=False)
 
     disc.generate_image(rmax,nbins,noiselevel=noiselevel)
 
