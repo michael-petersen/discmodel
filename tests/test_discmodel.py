@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 
 import discmodel
+import discmodel.discmodel as discmodel_module
 
 def test_discmodel_initialization():
     """Test initialization of DiscGalaxy class."""
@@ -186,3 +187,46 @@ def test_discmodel_resampling():
     
     # check newdisc is Nx2 (sampled from 2d image only)
     assert newdisc.shape == (N, 2)
+
+
+def test_discmodel_resampling_uses_flattened_reconstruction_grid(monkeypatch):
+    class DummyExpansion:
+        def laguerre_reconstruction(self, rr, pp):
+            rr = np.asarray(rr)
+            pp = np.asarray(pp)
+            assert rr.ndim == 1
+            assert pp.ndim == 1
+            assert rr.shape == pp.shape
+            self.reconstruction = np.ones_like(rr)
+
+    class DummyDensityGrid:
+        def __init__(self, axes, rndmpdf):
+            self.axes = axes
+            self.rndmpdf = rndmpdf
+
+        def _calculate_faverages(self):
+            return np.ones_like(self.vertex_densities)
+
+        def _calculate_volumes(self):
+            return np.ones_like(self.vertex_densities)
+
+    class DummyLintSampler:
+        def __init__(self, grid):
+            self.grid = grid
+
+        def sample(self, n):
+            return np.zeros((n, 2))
+
+    class DummyLintSamplerModule:
+        DensityGrid = DummyDensityGrid
+        LintSampler = DummyLintSampler
+
+    monkeypatch.setattr(discmodel_module, "HAS_LINTSAMPLER", True)
+    monkeypatch.setattr(discmodel_module, "lintsampler", DummyLintSamplerModule)
+
+    disc = discmodel.DiscGalaxy(N=10)
+    disc.generate_image(rmax=30.0, nbins=5)
+
+    pos = disc.resample_expansion(DummyExpansion())
+
+    assert pos.shape == (10, 2)

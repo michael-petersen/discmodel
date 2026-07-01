@@ -227,10 +227,11 @@ class DiscGalaxy(object):
             raise ImportError("lintsampler is not available. Please install lintsampler to use this method.")
         
         def rndmpdf(X): return np.random.uniform()
-        g = lintsampler.DensityGrid((self.x_centers,self.x_centers), rndmpdf)
+        g = lintsampler.DensityGrid((self.x_centers,self.y_centers), rndmpdf)
 
-        E.laguerre_reconstruction(self.r, self.p)
-        g.vertex_densities = E.reconstruction.T/(2.*np.pi)
+        E.laguerre_reconstruction(self.r.reshape(-1), self.p.reshape(-1))
+        reconstruction = E.reconstruction.reshape(self.r.shape)
+        g.vertex_densities = reconstruction.T/(2.*np.pi)
             
         g.masses = g._calculate_faverages() * g._calculate_volumes()
         g._total_mass = np.sum(g.masses)
