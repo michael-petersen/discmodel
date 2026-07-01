@@ -30,7 +30,7 @@ classifiers = [
 dynamic = ["version"]
 
 [project.urls]
-Homepage = "https://github.com/michael-petersen/discmodel"
+Homepage = "https://github.com/ObservationalExpansions/discmodel"
 Documentation = "https://discmodel.readthedocs.io"
 
 [tool.setuptools_scm]

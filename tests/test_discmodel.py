@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 import discmodel
 
@@ -84,6 +85,19 @@ def test_discmodel_phasespace_input():
     disc = discmodel.DiscGalaxy(N=N, a=a, M=M, vcirc=vcirc, rmax=rmax)
 
     newdisc = discmodel.DiscGalaxy(phasespace=(disc.x,disc.y,disc.z,disc.u,disc.v,disc.w))
+    assert newdisc.N == N
+
+
+def test_discmodel_initialization_does_not_reset_global_rng():
+    """Test DiscGalaxy uses its own RNG for reproducible initialization."""
+    np.random.seed(1)
+    expected = np.random.rand()
+
+    np.random.seed(1)
+    discmodel.DiscGalaxy(N=10)
+    actual = np.random.rand()
+
+    assert actual == expected
 
 
 def test_discmodel_version():
@@ -113,6 +127,8 @@ def test_discmodel_image():
 
 
 def test_discmodel_expansion():
+    pytest.importorskip("flex")
+
     N = 1000
     a = 3.0
     M = 1.0
@@ -149,6 +165,9 @@ def test_discmodel_expansion():
 
 
 def test_discmodel_resampling():
+    pytest.importorskip("flex")
+    pytest.importorskip("lintsampler")
+
     N = 1000
     a = 3.0
     M = 1.0

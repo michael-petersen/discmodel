@@ -1,8 +1,4 @@
-
 import numpy as np
-
-# for the Laguerre polynomials
-from scipy.special import eval_genlaguerre
 
 # for interpolation
 from scipy import interpolate
@@ -22,11 +18,12 @@ if HAS_FLEX:
 class DiscGalaxy(object):
 
 
-    def __init__(self,N=None,phasespace=None,a=3.,M=1.,vcirc=200.,rmax=30.):
+    def __init__(self,N=None,phasespace=None,a=3.,M=1.,vcirc=200.,rmax=30.,seed=42):
 
         self.a = a
         self.M = M
         self.vcirc = vcirc
+        self.seed = seed
         self.rmax = rmax*a    # rmax is now a multiple of the scale length; this should only need to be changed in the case of very large N
 
         if N is not None:
@@ -53,12 +50,12 @@ class DiscGalaxy(object):
         f = interpolate.interp1d(menclosed(x),x)
 
         # pull a bunch of points: pick a random radius in the disc
-        np.random.seed(42)  # for reproducibility: this might need to go somewhere else?
-        m = np.random.rand(self.N)
+        rng = np.random.RandomState(self.seed)
+        m = rng.rand(self.N)
         r = f(m)
 
         # pick a random azimuthal angle
-        p = 2.*np.pi*np.random.rand(self.N)
+        p = 2.*np.pi*rng.rand(self.N)
 
         x = r*np.cos(p)
         y = r*np.sin(p)
@@ -135,30 +132,17 @@ class DiscGalaxy(object):
 
         Rmatrix = self.make_rotation_matrix(xrotation,yrotation,zrotation,euler=euler)
 
-        #
         # do the transformation in position
         tmp = np.dot(np.array([x,y,z]).T,Rmatrix)
-        
-        #try:
         xout = tmp[:,0]
         yout = tmp[:,1]
         zout = tmp[:,2]
-        #except:
-        #    xout = tmp[0]
-        #    yout = tmp[1]
-        #    zout = tmp[2]
 
         # and in velocity
         tmpv = np.dot(np.array([u,v,w]).T,Rmatrix)
-
-        #try:
         uout = tmpv[:,0]
         vout = tmpv[:,1]
         wout = tmpv[:,2]
-        #except:
-        #    uout = tmpv[0]
-        #    vout = tmpv[1]
-        #    wout = tmpv[2]        
 
         self.x = xout
         self.y = yout
@@ -184,7 +168,6 @@ class DiscGalaxy(object):
         self.x_centers = (self.x_edges[:-1] + self.x_edges[1:]) / 2
         self.y_centers = (self.y_edges[:-1] + self.y_edges[1:]) / 2
     
-        dx = self.x_edges[1]-self.x_edges[0]
         xpix,ypix = np.meshgrid(self.x_centers,self.y_centers,indexing='ij')
         rr,pp = np.sqrt(xpix**2+ypix**2),np.arctan2(ypix,xpix)
 
@@ -198,19 +181,18 @@ class DiscGalaxy(object):
         if not HAS_FLEX:
             raise ImportError("flex is not available. Please install flex to use this method.")
 
-        try:
-            snapshot = self.img
-        except:
-            print('No image data to expand... run generate_image first.')
-            return
+        if not hasattr(self, "img"):
+            raise RuntimeError("No image data to expand. Run generate_image first.")
         
         if noisy:
+            if not hasattr(self, "noisyimage"):
+                raise RuntimeError("No noisy image data to expand. Run generate_image with noiselevel first.")
             snapshot = self.noisyimage
+        else:
+            snapshot = self.img
 
         # recreate these temporarily, so we can use them
-        dx = self.x_edges[1]-self.x_edges[0]
         xpix,ypix = np.meshgrid(self.x_centers,self.y_centers,indexing='ij')
-        rr,pp = np.sqrt(xpix**2+ypix**2),np.arctan2(ypix,xpix)
 
         rval = np.sqrt(xpix**2+ypix**2).reshape(-1,)
         phi  = np.arctan2(ypix,xpix).reshape(-1,)
@@ -219,8 +201,6 @@ class DiscGalaxy(object):
         # create a mask for pixels outside the maximum radius
         gvals = np.where(rval>xmax)
 
-        #rval[gvals]         = np.nan
-        #phi[gvals]          = np.nan
         snapshotflat[gvals] = np.nan
 
         laguerre = flex.FLEX(rscl,mmax,nmax,rval,phi,mass=snapshotflat)
