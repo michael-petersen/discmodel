@@ -101,6 +101,18 @@ def test_discmodel_initialization_does_not_reset_global_rng():
     assert actual == expected
 
 
+def test_discmodel_seed_reproducibility():
+    """Test seeded DiscGalaxy instances generate reproducible phase space."""
+    disc1 = discmodel.DiscGalaxy(N=20, seed=123)
+    disc2 = discmodel.DiscGalaxy(N=20, seed=123)
+    disc3 = discmodel.DiscGalaxy(N=20, seed=124)
+
+    for attr in ("x", "y", "z", "u", "v", "w"):
+        assert np.allclose(getattr(disc1, attr), getattr(disc2, attr))
+
+    assert not np.allclose(disc1.x, disc3.x)
+
+
 def test_discmodel_version():
     """Test that the version string is correctly set."""
     import discmodel
@@ -125,6 +137,79 @@ def test_discmodel_image():
     # check that r and p are set
     assert hasattr(disc,'r')
     assert hasattr(disc,'p')
+
+
+def test_discmodel_expansion_requires_flex(monkeypatch):
+    monkeypatch.setattr(discmodel_module, "HAS_FLEX", False)
+    disc = discmodel.DiscGalaxy(N=10)
+
+    with pytest.raises(ImportError, match="flex is not available"):
+        disc.make_expansion(mmax=4, nmax=4, rscl=1.0)
+
+    with pytest.raises(ImportError, match="flex is not available"):
+        disc.make_particle_expansion(mmax=4, nmax=4, rscl=1.0)
+
+
+def test_discmodel_expansion_requires_image_data(monkeypatch):
+    monkeypatch.setattr(discmodel_module, "HAS_FLEX", True)
+    disc = discmodel.DiscGalaxy(N=10)
+
+    with pytest.raises(RuntimeError, match="Run generate_image first"):
+        disc.make_expansion(mmax=4, nmax=4, rscl=1.0)
+
+
+def test_discmodel_noisy_expansion_requires_noisy_image(monkeypatch):
+    monkeypatch.setattr(discmodel_module, "HAS_FLEX", True)
+    disc = discmodel.DiscGalaxy(N=10)
+    disc.generate_image(rmax=30.0, nbins=5)
+
+    with pytest.raises(RuntimeError, match="Run generate_image with noiselevel first"):
+        disc.make_expansion(mmax=4, nmax=4, rscl=1.0, noisy=True)
+
+
+def test_discmodel_particle_expansion_uses_flex(monkeypatch):
+    class DummyFlex:
+        def __init__(self, rscl, mmax, nmax, rval, phi, mass):
+            self.rscl = rscl
+            self.mmax = mmax
+            self.nmax = nmax
+            self.rval = rval
+            self.phi = phi
+            self.mass = mass
+
+    class DummyFlexModule:
+        FLEX = DummyFlex
+
+    monkeypatch.setattr(discmodel_module, "HAS_FLEX", True)
+    monkeypatch.setattr(discmodel_module, "flex", DummyFlexModule)
+
+    disc = discmodel.DiscGalaxy(N=10, M=2.0)
+    expansion = disc.make_particle_expansion(mmax=3, nmax=2, rscl=1.5)
+
+    assert expansion.rscl == 1.5
+    assert expansion.mmax == 3
+    assert expansion.nmax == 2
+    assert expansion.rval.shape == (10,)
+    assert expansion.phi.shape == (10,)
+    assert np.all(expansion.mass == 0.2)
+
+
+def test_discmodel_resampling_requires_lintsampler(monkeypatch):
+    monkeypatch.setattr(discmodel_module, "HAS_LINTSAMPLER", False)
+    disc = discmodel.DiscGalaxy(N=10)
+
+    with pytest.raises(ImportError, match="lintsampler is not available"):
+        disc.resample_expansion(object())
+
+
+def test_discmodel_compute_a1_with_dummy_expansion():
+    class DummyExpansion:
+        coscoefs = np.array([[1.0, 0.0], [2.0, 0.0]])
+        sincoefs = np.array([[0.0, 0.0], [0.0, 0.0]])
+
+    disc = discmodel.DiscGalaxy(N=10)
+
+    assert disc.compute_a1(DummyExpansion()) == 2.0
 
 
 def test_discmodel_expansion():

@@ -50,12 +50,12 @@ class DiscGalaxy(object):
         f = interpolate.interp1d(menclosed(x),x)
 
         # pull a bunch of points: pick a random radius in the disc
-        rng = np.random.RandomState(self.seed)
-        m = rng.rand(self.N)
+        rng = np.random.default_rng(self.seed)
+        m = rng.random(self.N)
         r = f(m)
 
         # pick a random azimuthal angle
-        p = 2.*np.pi*rng.rand(self.N)
+        p = 2.*np.pi*rng.random(self.N)
 
         x = r*np.cos(p)
         y = r*np.sin(p)
