@@ -8,6 +8,9 @@ from .optional_imports import _check_lintsampler, _check_flex
 HAS_LINTSAMPLER = _check_lintsampler()
 HAS_FLEX = _check_flex()
 
+lintsampler = None
+flex = None
+
 if HAS_LINTSAMPLER:
     import lintsampler
 
@@ -16,14 +19,37 @@ if HAS_FLEX:
 
 
 class DiscGalaxy(object):
+    """Simple particle realization of an exponential disc galaxy."""
 
 
-    def __init__(self,N=None,phasespace=None,a=3.,M=1.,vcirc=200.,rmax=30.,seed=42):
+    def __init__(self,N=None,phasespace=None,a=3.,M=1.,vcirc=200.,rmax=30.,seed=42,zscale=0.0):
+        """Initialize a disc from sampled particles or supplied phase-space arrays.
+
+        Parameters
+        ----------
+        N : int, optional
+            Number of equal-mass particles to sample.
+        phasespace : tuple of arrays, optional
+            Existing ``(x, y, z, u, v, w)`` arrays to use instead of sampling.
+        a : float, optional
+            Exponential radial scale length.
+        M : float, optional
+            Total disc mass.
+        vcirc : float, optional
+            Circular speed used for the mean azimuthal velocity.
+        rmax : float, optional
+            Maximum sampling radius in units of ``a``.
+        seed : int, optional
+            Seed for the local random number generator.
+        zscale : float, optional
+            Vertical Gaussian scale height. Use zero for a flat disc.
+        """
 
         self.a = a
         self.M = M
         self.vcirc = vcirc
         self.seed = seed
+        self.zscale = 0.05*a if zscale is None else zscale
         self.rmax = rmax*a    # rmax is now a multiple of the scale length; this should only need to be changed in the case of very large N
 
         if N is not None:
@@ -39,7 +65,7 @@ class DiscGalaxy(object):
 
             
     def _generate_basic_disc_points(self):
-        """generate a flat exponential disc, just for demo purposes"""
+        """Sample positions and velocities for the built-in demonstration disc."""
         
         x = np.linspace(0.,self.rmax,10000)
 
@@ -59,27 +85,40 @@ class DiscGalaxy(object):
 
         x = r*np.cos(p)
         y = r*np.sin(p)
-        z = r*0.0 # perfectly flat!
+        # Isothermal vertical distribution in a constant-density slab:
+        # Phi_z = 0.5*nu^2*z^2, so equilibrium has Gaussian z and w.
+        nu = self.vcirc/self.a
+        z = rng.normal(0.0,self.zscale,self.N)
         
         # give them a perfect fixed circular velocity
         # this is a place we could upgrade, e.g. np.tanh(r/scale) instead of np.ones(r.size)
         # plus adding bar velocities or something (but then we'd want to add bar density, probably)
         u = self.vcirc*np.sin(p)*np.ones(r.size)
         v = self.vcirc*np.cos(p)*np.ones(r.size)
-        w = r*0.0
+        w = rng.normal(0.0,nu*self.zscale,self.N)
         
         
         return x,y,z,u,v,w
 
     @staticmethod
     def make_rotation_matrix(xrotation,yrotation,zrotation,euler=False):
+        """Return a 3D rotation matrix from angles specified in degrees.
+
+        Parameters
+        ----------
+        xrotation, yrotation, zrotation : float
+            Rotation angles about the coordinate axes, in degrees.
+        euler : bool, optional
+            If True, use the ZXZ Euler-angle convention instead of the default
+            extrinsic x-y-z Tait-Bryan convention.
+        """
         
         radfac = np.pi/180.
 
         # set rotation in radians
-        a = xrotation*radfac#np.pi/2.2  # xrotation (the tip into/out of page)
-        b = yrotation*radfac#np.pi/3.   # yrotation
-        c = zrotation*radfac#np.pi      # zrotation
+        a = xrotation*radfac   # xrotation (the tip into/out of page)
+        b = yrotation*radfac   # yrotation
+        c = zrotation*radfac   # zrotation
 
         # construct the rotation matrix TAIT-BRYAN method (x-y-z,
         # extrinsic rotations)
@@ -106,26 +145,15 @@ class DiscGalaxy(object):
         
 
     def rotate_disc(self,xrotation=0.,yrotation=0.,zrotation=0.,euler=False):
-        '''
-        rotate_disc
-            take a collection of 3d points and return the positions rotated by a specified set of angles
+        """Rotate the disc positions and velocities in place.
 
-        inputs
-        ------------------
-        A           : input set of points
-        xrotation   : rotation into/out of page around x axis, in degrees (inclination)
-        yrotation   : rotation into/out of page around y axis, in degrees
-        zrotation   : rotation in the plane of the page (z axis), in degrees
-        euler       : boolean
-            if True, transform as ZXZ' convention
-
-
-        returns
-        ------------------
-        B           : the rotated phase-space output
-
-
-        '''
+        Parameters
+        ----------
+        xrotation, yrotation, zrotation : float, optional
+            Rotation angles about the coordinate axes, in degrees.
+        euler : bool, optional
+            If True, use the ZXZ Euler-angle convention.
+        """
 
         x,y,z = self.x,self.y,self.z
         u,v,w = self.u,self.v,self.w
@@ -152,6 +180,18 @@ class DiscGalaxy(object):
         self.w = wout
 
     def generate_image(self,rmax,nbins,noiselevel=-1.0):
+        """Bin particle masses into a 2D image in the disc plane.
+
+        Parameters
+        ----------
+        rmax : float
+            Half-width of the square image domain.
+        nbins : int
+            Number of bins along each image axis.
+        noiselevel : float, optional
+            Standard deviation of Gaussian noise to add; negative values skip
+            noisy image generation.
+        """
 
         x_range = (-rmax, rmax)  # range for the x-axis
         y_range = (-rmax, rmax)  # range for the y-axis
@@ -177,6 +217,19 @@ class DiscGalaxy(object):
 
 
     def make_expansion(self,mmax,nmax,rscl,xmax=10000.,noisy=False):
+        """Construct a FLEX expansion from the binned image data.
+
+        Parameters
+        ----------
+        mmax, nmax : int
+            Azimuthal and radial expansion limits passed to ``flex.FLEX``.
+        rscl : float
+            Radial scale length for the expansion basis.
+        xmax : float, optional
+            Mask pixels outside this radius before expansion.
+        noisy : bool, optional
+            If True, expand ``noisyimage`` instead of ``img``.
+        """
 
         if not HAS_FLEX:
             raise ImportError("flex is not available. Please install flex to use this method.")
@@ -208,6 +261,7 @@ class DiscGalaxy(object):
         return laguerre
 
     def make_particle_expansion(self,mmax,nmax,rscl):
+        """Construct a FLEX expansion directly from particle positions."""
 
         if not HAS_FLEX:
             raise ImportError("flex is not available. Please install flex to use this method.")
@@ -222,6 +276,7 @@ class DiscGalaxy(object):
         return laguerre
 
     def resample_expansion(self,E):
+        """Draw new 2D particle positions from a reconstructed expansion."""
 
         if not HAS_LINTSAMPLER:
             raise ImportError("lintsampler is not available. Please install lintsampler to use this method.")
@@ -239,6 +294,7 @@ class DiscGalaxy(object):
         return pos
 
     def compute_a1(self,E):
+        """Return the relative m=1 amplitude from a FLEX expansion."""
         A1 = np.linalg.norm(np.linalg.norm([E.coscoefs,E.sincoefs],axis=2)[:,1])
         A0 = np.linalg.norm(np.linalg.norm([E.coscoefs,E.sincoefs],axis=2)[:,0])
         return A1/A0

@@ -113,6 +113,31 @@ def test_discmodel_seed_reproducibility():
     assert not np.allclose(disc1.x, disc3.x)
 
 
+def test_discmodel_basic_disc_has_isothermal_slab_thickness():
+    """Test basic DiscGalaxy samples a non-flat isothermal slab."""
+    N = 10000
+    a = 3.0
+    vcirc = 200.0
+    zscale = 0.2
+
+    disc = discmodel.DiscGalaxy(N=N, a=a, vcirc=vcirc, zscale=zscale)
+
+    assert disc.zscale == zscale
+    assert not np.allclose(disc.z, 0.0)
+    assert not np.allclose(disc.w, 0.0)
+    assert np.std(disc.z) == pytest.approx(zscale, rel=0.05)
+    assert np.std(disc.w) == pytest.approx((vcirc/a)*zscale, rel=0.05)
+
+
+def test_discmodel_basic_disc_allows_zero_zscale():
+    """Test zscale=0 recovers a flat disc without failing."""
+    disc = discmodel.DiscGalaxy(N=100, zscale=0.0)
+
+    assert disc.zscale == 0.0
+    assert np.all(disc.z == 0.0)
+    assert np.all(disc.w == 0.0)
+
+
 def test_discmodel_version():
     """Test that the version string is correctly set."""
     import discmodel
